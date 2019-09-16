@@ -8,6 +8,13 @@ from YOLOv3 import YOLOv3
 from deep_sort import DeepSort
 from util import COLORS_10, draw_bboxes
 
+from mtp import subroi, get_bbox_area
+import multiprocessing as mp
+from multiprocessing import Process
+import time
+
+people_path = []
+area_dic={}
 
 class Detector(object):
     def __init__(self, args):
@@ -30,7 +37,7 @@ class Detector(object):
 
         if self.args.save_path:
             fourcc =  cv2.VideoWriter_fourcc(*'MJPG')
-            self.output = cv2.VideoWriter(self.args.save_path, fourcc, 20, (self.im_width,self.im_height))
+            self.output = cv2.VideoWriter(self.args.save_path, fourcc, 30, (self.im_width,self.im_height))
 
         assert self.vdo.isOpened()
         return self
@@ -42,29 +49,56 @@ class Detector(object):
         
 
     def detect(self):
+        #multicore
+        pool = mp.Pool(processes=6) #6-core
+        #xmin, ymin, xmax, ymax = self.area
+        jump_flag = 1 
         while self.vdo.grab(): 
-            start = time.time()
             _, ori_im = self.vdo.retrieve()
-            im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
-            im = ori_im
-            bbox_xcycwh, cls_conf, cls_ids = self.yolo3(im)
-            if bbox_xcycwh is not None:
-                # select class person
-                mask = cls_ids==0
+            if jump_flag%2 ==0 : #jump frame  
+                start = time.time()
+                im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
+                im = ori_im
+                bbox_xcycwh, cls_conf, cls_ids = self.yolo3(im)
+                if bbox_xcycwh is not None:
+                    # select class person
+                    mask = cls_ids==0
 
-                bbox_xcycwh = bbox_xcycwh[mask]
-                bbox_xcycwh[:,3:] *= 1.2
+                    bbox_xcycwh = bbox_xcycwh[mask]
+                    bbox_xcycwh[:,3:] *= 1.2
 
-                cls_conf = cls_conf[mask]
-                outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
-                if len(outputs) > 0:
-                    bbox_xyxy = outputs[:,:4]
-                    identities = outputs[:,-1]
-                    ori_im = draw_bboxes(ori_im, bbox_xyxy, identities)
+                    cls_conf = cls_conf[mask]
+                    outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
+                    for output in outputs:
+                        if output[4] > len(people_path):
+                            for i in range(0, output[4] - len(people_path)):
+                                people_path.append([])
+                        people_path[output[4] - 1].append(np.array(([(output[0] + output[2]) / 2, output[3]])))
+                        coordinate = output[:4]
+                        bbox_area = get_bbox_area(coordinate)
+                        try :
+                            if area_dic[output[-1]] < bbox_area :
+                                area_dic[output[-1]] = bbox_area
+                                pool.apply_async(subroi,(ori_im,output))
+                                print("---------------")
 
-            end = time.time()
-            print("time: {}s, fps: {}".format(end-start, 1/(end-start)))
-
+                        except KeyError:
+                            area_dic.setdefault(output[-1],bbox_area)
+                            pool.apply_async(subroi,(ori_im,output))
+                            print("---------------")
+                    
+                    if len(outputs) > 0:
+                        bbox_xyxy = outputs[:,:4]
+                        identities = outputs[:,-1]
+                        ori_im = draw_bboxes(ori_im, bbox_xyxy, identities)
+                        for id in identities:
+                            for i in range(1, len(people_path[id-1])):
+                                cv2.line(ori_im, (int(people_path[id-1][i-1][0]), int(people_path[id-1][i-1][1])), 
+                                (int(people_path[id-1][i][0]), int(people_path[id-1][i][1])), (0, 0, 255), 1)
+                end = time.time()
+                print("time: {}s, fps: {}".format(end-start, 1/(end-start)))
+                print(area_dic)
+            jump_flag+=1
             if self.args.display:
                 cv2.imshow("test", ori_im)
                 cv2.waitKey(1)
