@@ -1,10 +1,10 @@
 # Deep Sort with PyTorch
 
-## Latest Update(07-22)
+## Latest Update(09-16)
 Changes
-- bug fix (Thanks @JieChen91 and @yingsen1 for bug reporting).  
-- using batch for feature extracting for each frame, which lead to a small speed up.  
-- code improvement.
+-Plot the people tracking path and caculate the velocity
+-Use jump frame mechanism to improve the performance
+-Add multicore processing to parallel the detection
 
 Futher improvement direction  
 - Train detector on specific dataset rather than the official one.
