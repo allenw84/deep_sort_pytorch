@@ -12,9 +12,9 @@ def subroi(img, output) :
     if area > area_threshold:
         
         if id%2 == 0:
-            cv2.imwrite("bdox2.jpg",roiImg)
+            cv2.imwrite("images/bdox2.jpg",roiImg)
         else : 
-            cv2.imwrite("bdox1.jpg",roiImg)
+            cv2.imwrite("images/bdox1.jpg",roiImg)
 
 
 def get_bbox_area(bbox):
