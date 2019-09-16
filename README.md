@@ -2,9 +2,9 @@
 
 ## Latest Update(09-16)
 Changes
--Plot the people tracking path and caculate the velocity
--Use jump frame mechanism to improve the performance
--Add multicore processing to parallel the detection
+- Plot the people tracking path and caculate the velocity  
+- Use jump frame mechanism to improve the performance  
+- Add multicore processing to parallel the detection  
 
 Futher improvement direction  
 - Train detector on specific dataset rather than the official one.
